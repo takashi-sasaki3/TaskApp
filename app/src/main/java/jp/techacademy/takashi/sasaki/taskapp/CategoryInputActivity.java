@@ -1,5 +1,7 @@
 package jp.techacademy.takashi.sasaki.taskapp;
 
+import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -17,7 +19,10 @@ public class CategoryInputActivity extends AppCompatActivity {
     private View.OnClickListener onDoneClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            addCategory();
+            int id = addCategory();
+            Intent intent = new Intent();
+            intent.putExtra("categoryId", id);
+            setResult(Activity.RESULT_OK, intent);
             finish();
         }
     };
@@ -37,8 +42,9 @@ public class CategoryInputActivity extends AppCompatActivity {
         findViewById(R.id.doneButton).setOnClickListener(onDoneClickListener);
     }
 
-    private void addCategory() {
+    private int addCategory() {
         Realm realm = Realm.getDefaultInstance();
+        int id = -1;
         try {
             Category category = new Category();
             category.setName(nameEditText.getText().toString());
@@ -51,11 +57,12 @@ public class CategoryInputActivity extends AppCompatActivity {
             realm.beginTransaction();
             realm.copyToRealmOrUpdate(category);
             realm.commitTransaction();
+            id = category.getId();
         } catch (Exception e) {
             realm.cancelTransaction();
         } finally {
             realm.close();
+            return id;
         }
     }
-
 }

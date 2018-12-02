@@ -18,7 +18,6 @@ public class TaskAlarmReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         Log.d("TaskApp", ":: TaskAlarmReceiver#onReceive :::::::::::::::::::::::::::::");
-
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
         // SDKバージョンが26以上の場合はチャネルを設定する必要がある

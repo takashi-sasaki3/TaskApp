@@ -8,10 +8,8 @@ import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.Spinner;
 
@@ -24,26 +22,20 @@ public class MainActivity extends AppCompatActivity {
 
     public final static String EXTRA_TASK = "jp.techacademy.takashi.sasaki.taskapp.TASK";
 
-    private ListView listView;
-
-    private Spinner spinner;
+    private ListView taskListView;
+    private Spinner categorySpinner;
 
     private TaskAdapter taskAdapter;
-
     private CategoryAdapter categoryAdapter;
-
-    private Realm realm;
-
-    private Category defaultCategory;
 
     private Category selectedCategory;
 
-    private int selectedCategoryPosition = 0;
+    private Realm realm;
 
     private void prepareRealm() {
         realm = Realm.getDefaultInstance();
 
-        // 未分類作成
+        // 0:未分類作成
         if (realm.where(Category.class).equalTo("id", 0).findAll().size() == 0) {
             realm.executeTransaction(new Realm.Transaction() {
                 @Override
@@ -54,60 +46,23 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-//        RealmResults<Category> results = realm.where(Category.class).findAll();
-//        for (Category category : results) {
-//            Log.d("TaskApp", "" + category.getId() + "/" + category.getName());
-//        }
-//        Log.d("TaskApp", "size:" + results.size());
-
         // 起動時は未分類タスクを表示
-        defaultCategory = realm.where(Category.class).equalTo("id", 0).findFirst();
-        selectedCategory = defaultCategory;
-
-//        // 一旦全削除
-//        realm.executeTransaction(new Realm.Transaction() {
-//            @Override
-//            public void execute(Realm realm) {
-//                realm.where(Task.class).findAll().deleteAllFromRealm();
-//            }
-//        });
-
-
-        // testタスク登録
-        defaultCategory = realm.where(Category.class).equalTo("id", 0).findFirst();
-
-//        realm.executeTransaction(new Realm.Transaction() {
-//            @Override
-//            public void execute(Realm realm) {
-//                Task task = realm.createObject(Task.class, 0);
-//                task.setTitle("タスク1");
-//                task.setContents("タスク1");
-//                task.setDate(new Date());
-//                task.setCategory(defaultCategory);
-//            }
-//        });
-
-//        realm.executeTransaction(new Realm.Transaction() {
-//            @Override
-//            public void execute(Realm realm) {
-//                Task task = realm.createObject(Task.class, 1);
-//                task.setTitle("タスク2");
-//                task.setContents("タスク2");
-//                task.setDate(new Date());
-//                task.setCategory(realm.where(Category.class).equalTo("id", 1).findFirst());
-//            }
-//        });
-
-        RealmResults<Task> results = realm.where(Task.class).findAll();
-        for (Task task : results) {
-            Log.d("TaskApp", "" + task.getId() + "/" + task.getTitle() + "/" + task.getContents() + "/" + task.getCategory().getName());
-        }
-        Log.d("TaskApp", "size:" + results.size());
+        selectedCategory = realm.where(Category.class).equalTo("id", 0).findFirst();
 
         realm.addChangeListener(new RealmChangeListener<Realm>() {
             @Override
             public void onChange(Realm realm) {
-                reloadView();
+                reloadAllList();
+            }
+        });
+    }
+
+    private void clearRealm() {
+        realm.executeTransaction(new Realm.Transaction() {
+            @Override
+            public void execute(Realm realm) {
+                realm.where(Task.class).findAll().deleteAllFromRealm();
+                realm.where(Category.class).findAll().deleteAllFromRealm();
             }
         });
     }
@@ -131,8 +86,8 @@ public class MainActivity extends AppCompatActivity {
         taskAdapter = new TaskAdapter(MainActivity.this);
         categoryAdapter = new CategoryAdapter(MainActivity.this);
 
-        listView = findViewById(R.id.listView1);
-        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+        taskListView = findViewById(R.id.taskListView);
+        taskListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Task task = (Task) parent.getAdapter().getItem(position);
@@ -141,7 +96,7 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
-        listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+        taskListView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
                 final Task task = (Task) parent.getAdapter().getItem(position);
@@ -167,7 +122,7 @@ public class MainActivity extends AppCompatActivity {
                         AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
                         alarmManager.cancel(pendingIntent);
 
-                        reloadView();
+                        reloadAllList();
                     }
                 });
                 builder.setNegativeButton("CANCEL", null);
@@ -177,16 +132,13 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        spinner = findViewById(R.id.categorySpinner);
-        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+        categorySpinner = findViewById(R.id.categorySpinner);
+        categorySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 if (view != null) {
                     Spinner spinner = (Spinner) parent;
                     selectedCategory = (Category) spinner.getSelectedItem();
-                    Log.d("TaskApp", "selected:" + selectedCategory.getId() + "" + selectedCategory.getName());
-                    Log.d("TaskApp", "position:" + position);
-
                     reloadTaskList();
                 }
             }
@@ -196,25 +148,28 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        reloadView();
+        reloadAllList();
     }
 
-    private void reloadView() {
+    private void reloadAllList() {
         reloadTaskList();
         reloadCategoryList();
     }
 
     private void reloadTaskList() {
-        RealmResults<Task> taskResults = realm.where(Task.class).equalTo("category.id", selectedCategory.getId()).findAll().sort("date", Sort.DESCENDING);
-        taskAdapter.setTaskList(realm.copyFromRealm(taskResults));
-        listView.setAdapter(taskAdapter);
+        RealmResults<Task> results = realm.where(Task.class)
+                .equalTo("category.id", selectedCategory.getId())
+                .findAll().sort("date", Sort.DESCENDING);
+        taskAdapter.setTaskList(realm.copyFromRealm(results));
+        taskListView.setAdapter(taskAdapter);
         taskAdapter.notifyDataSetChanged();
     }
 
     private void reloadCategoryList() {
-        RealmResults<Category> categoryResults = realm.where(Category.class).findAll().sort("name", Sort.DESCENDING);
-        categoryAdapter.setCategories(realm.copyFromRealm(categoryResults));
-        spinner.setAdapter(categoryAdapter);
+        RealmResults<Category> results = realm.where(Category.class)
+                .findAll().sort("name", Sort.DESCENDING);
+        categoryAdapter.setCategories(realm.copyFromRealm(results));
+        categorySpinner.setAdapter(categoryAdapter);
         categoryAdapter.notifyDataSetChanged();
     }
 

@@ -1,5 +1,6 @@
 package jp.techacademy.takashi.sasaki.taskapp;
 
+import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.DatePickerDialog;
 import android.app.PendingIntent;
@@ -8,6 +9,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.Button;
@@ -18,6 +20,7 @@ import android.widget.TimePicker;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
+import java.util.List;
 
 import io.realm.Realm;
 import io.realm.RealmChangeListener;
@@ -29,7 +32,7 @@ import static jp.techacademy.takashi.sasaki.taskapp.MainActivity.EXTRA_TASK;
 public class InputActivity extends AppCompatActivity {
 
     private int year, month, day, hour, minute;
-    private Button dateButton, timeButton, addCategoryButton;
+    private Button dateButton, timeButton;
     private EditText titleEditText, contentEditText;
     private Spinner categorySpinner;
 
@@ -37,12 +40,17 @@ public class InputActivity extends AppCompatActivity {
     private Category selectedCategory;
     private CategoryAdapter categoryAdapter;
 
+    private int newCategoryId;
+
     private Realm realm;
 
-    private RealmChangeListener realmChangeListener = new RealmChangeListener() {
+    private RealmChangeListener<Realm> realmChangeListener = new RealmChangeListener<Realm>() {
         @Override
-        public void onChange(Object o) {
-            reloadView();
+        public void onChange(Realm realm) {
+            List<Category> categories = getAllCategories();
+            categoryAdapter.setCategories(categories);
+            categorySpinner.setAdapter(categoryAdapter);
+            categoryAdapter.notifyDataSetChanged();
         }
     };
 
@@ -95,9 +103,41 @@ public class InputActivity extends AppCompatActivity {
         @Override
         public void onClick(View v) {
             Intent intent = new Intent(InputActivity.this, CategoryInputActivity.class);
-            startActivity(intent);
+            startActivityForResult(intent, 101);
         }
     };
+
+    private AdapterView.OnItemSelectedListener onCategorySelectedListener = new AdapterView.OnItemSelectedListener() {
+        @Override
+        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+            Spinner spinner = (Spinner) parent;
+            selectedCategory = (Category) spinner.getSelectedItem();
+        }
+
+        @Override
+        public void onNothingSelected(AdapterView<?> parent) {
+        }
+    };
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 101) {
+            if (resultCode == Activity.RESULT_OK) {
+                newCategoryId = data.getIntExtra("categoryId", -1);
+                Log.d("TaskApp", "newCategoryId:" + newCategoryId);
+                categorySpinner.setOnItemSelectedListener(null);
+                List<Category> categories = categoryAdapter.getCategories();
+                for (int i = 0; i < categories.size(); i++) {
+                    if (categories.get(i).getId() == newCategoryId) {
+                        categorySpinner.setSelection(i, false);
+                        break;
+                    }
+                }
+                categorySpinner.setOnItemSelectedListener(onCategorySelectedListener);
+            }
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -119,28 +159,15 @@ public class InputActivity extends AppCompatActivity {
         titleEditText = findViewById(R.id.title_edit_text);
         contentEditText = findViewById(R.id.content_edit_text);
         categorySpinner = findViewById(R.id.categorySpinner);
-        categorySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                Spinner spinner = (Spinner) parent;
-                selectedCategory = (Category) spinner.getSelectedItem();
-            }
 
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-            }
-        });
+        Intent intent = getIntent();
+        int taskId = intent.getIntExtra(EXTRA_TASK, -1);
 
         realm = Realm.getDefaultInstance();
         realm.addChangeListener(realmChangeListener);
 
-        categoryAdapter = new CategoryAdapter(InputActivity.this);
-
-        Intent intent = getIntent();
-        int taskId = intent.getIntExtra(EXTRA_TASK, -1);
         task = realm.where(Task.class).equalTo("id", taskId).findFirst();
-        selectedCategory = task.getCategory();
-        realm.close();
+        selectedCategory = realm.where(Category.class).equalTo("id", 0).findFirst();
 
         if (task == null) {
             Calendar calendar = Calendar.getInstance();
@@ -152,6 +179,7 @@ public class InputActivity extends AppCompatActivity {
         } else {
             titleEditText.setText(task.getTitle());
             contentEditText.setText(task.getContents());
+            selectedCategory = task.getCategory();
 
             Calendar calendar = Calendar.getInstance();
             calendar.setTime(task.getDate());
@@ -165,14 +193,26 @@ public class InputActivity extends AppCompatActivity {
             timeButton.setText(String.format("%02d", hour) + ":" + String.format("%02d", minute));
         }
 
-        reloadView();
-    }
-
-    private void reloadView() {
-        RealmResults<Category> categoryRealmResults = realm.where(Category.class).findAll().sort("name", Sort.DESCENDING);
-        categoryAdapter.setCategories(realm.copyFromRealm(categoryRealmResults));
+        categoryAdapter = new CategoryAdapter(InputActivity.this);
+        List<Category> categories = getAllCategories();
+        categoryAdapter.setCategories(categories);
         categorySpinner.setAdapter(categoryAdapter);
         categoryAdapter.notifyDataSetChanged();
+        for (int i = 0; i < categories.size(); i++) {
+            if (categories.get(i).getId() == selectedCategory.getId()) {
+                categorySpinner.setSelection(i, false);
+                break;
+            }
+        }
+        categorySpinner.setOnItemSelectedListener(onCategorySelectedListener);
+    }
+
+    private List<Category> getAllCategories() {
+        RealmResults<Category> results = realm.where(Category.class).findAll().sort("name", Sort.DESCENDING);
+        return realm.copyFromRealm(results);
+    }
+
+    private void reloadCategoryList() {
     }
 
     private void addTask() {
@@ -194,7 +234,7 @@ public class InputActivity extends AppCompatActivity {
         task.setTitle(titleEditText.getText().toString());
         task.setContents(contentEditText.getText().toString());
         task.setDate(calendar.getTime());
-        task.setCategory(selectedCategory);
+        task.setCategory(realm.where(Category.class).equalTo("id", selectedCategory.getId()).findFirst());
 
         realm.copyToRealmOrUpdate(task);
         realm.commitTransaction();
@@ -210,5 +250,11 @@ public class InputActivity extends AppCompatActivity {
         );
         AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
         alarmManager.set(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        realm.close();
     }
 }
