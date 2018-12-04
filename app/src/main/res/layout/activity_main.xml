@@ -8,16 +8,16 @@
     tools:context=".MainActivity">
 
     <LinearLayout
-        android:orientation="vertical"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
         <Spinner
             android:id="@+id/categorySpinner"
+            style="@style/AppTheme"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:spinnerMode="dialog"
-            style="@style/AppTheme"
             app:layout_constraintStart_toStartOf="parent" />
 
         <ListView
@@ -26,6 +26,13 @@
             android:layout_height="wrap_content"
             app:layout_constraintTop_toBottomOf="@+id/categorySpinner" />
 
+        <TextView
+            android:id="@+id/emptyTextView"
+            android:text="タスクが登録されていません"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center" />
     </LinearLayout>
 
     <android.support.design.widget.FloatingActionButton

@@ -1,9 +1,7 @@
 package jp.techacademy.takashi.sasaki.taskapp;
 
 import android.app.Activity;
-import android.app.AlarmManager;
 import android.app.DatePickerDialog;
-import android.app.PendingIntent;
 import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.os.Bundle;
@@ -29,7 +27,7 @@ import io.realm.Sort;
 
 import static jp.techacademy.takashi.sasaki.taskapp.MainActivity.EXTRA_TASK;
 
-public class InputActivity extends AppCompatActivity {
+public class TaskInputActivity extends AppCompatActivity {
 
     private int year, month, day, hour, minute;
     private Button dateButton, timeButton;
@@ -47,10 +45,10 @@ public class InputActivity extends AppCompatActivity {
     private RealmChangeListener<Realm> realmChangeListener = new RealmChangeListener<Realm>() {
         @Override
         public void onChange(Realm realm) {
-            List<Category> categories = getAllCategories();
-            categoryAdapter.setCategories(categories);
-            categorySpinner.setAdapter(categoryAdapter);
-            categoryAdapter.notifyDataSetChanged();
+//            List<Category> categories = getAllCategories();
+//            categoryAdapter.setCategories(categories);
+//            categorySpinner.setAdapter(categoryAdapter);
+//            categoryAdapter.notifyDataSetChanged();
         }
     };
 
@@ -58,7 +56,7 @@ public class InputActivity extends AppCompatActivity {
         @Override
         public void onClick(View v) {
             DatePickerDialog datePickerDialog = new DatePickerDialog(
-                    InputActivity.this,
+                    TaskInputActivity.this,
                     new DatePickerDialog.OnDateSetListener() {
                         @Override
                         public void onDateSet(DatePicker view, int y, int m, int d) {
@@ -77,7 +75,7 @@ public class InputActivity extends AppCompatActivity {
         @Override
         public void onClick(View v) {
             TimePickerDialog timePickerDialog = new TimePickerDialog(
-                    InputActivity.this,
+                    TaskInputActivity.this,
                     new TimePickerDialog.OnTimeSetListener() {
                         @Override
                         public void onTimeSet(TimePicker view, int h, int m) {
@@ -102,7 +100,7 @@ public class InputActivity extends AppCompatActivity {
     private View.OnClickListener onAddCategoryClickLister = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            Intent intent = new Intent(InputActivity.this, CategoryInputActivity.class);
+            Intent intent = new Intent(TaskInputActivity.this, CategoryInputActivity.class);
             startActivityForResult(intent, 101);
         }
     };
@@ -110,8 +108,7 @@ public class InputActivity extends AppCompatActivity {
     private AdapterView.OnItemSelectedListener onCategorySelectedListener = new AdapterView.OnItemSelectedListener() {
         @Override
         public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-            Spinner spinner = (Spinner) parent;
-            selectedCategory = (Category) spinner.getSelectedItem();
+            selectedCategory = (Category) ((Spinner) parent).getSelectedItem();
         }
 
         @Override
@@ -121,16 +118,23 @@ public class InputActivity extends AppCompatActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        Log.d("TaskApp", ":: TaskInputActivity#onActivityResult ::::::::::::::::::::::");
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == 101) {
             if (resultCode == Activity.RESULT_OK) {
                 newCategoryId = data.getIntExtra("categoryId", -1);
-                Log.d("TaskApp", "newCategoryId:" + newCategoryId);
+                Log.d("TaskApp", "new category id:" + newCategoryId);
+
+                RealmResults<Category> results = realm.where(Category.class)
+                        .findAll().sort("name", Sort.DESCENDING);
+                categoryAdapter.setCategories(realm.copyFromRealm(results));
+                categorySpinner.setAdapter(categoryAdapter);
                 categorySpinner.setOnItemSelectedListener(null);
                 List<Category> categories = categoryAdapter.getCategories();
                 for (int i = 0; i < categories.size(); i++) {
                     if (categories.get(i).getId() == newCategoryId) {
                         categorySpinner.setSelection(i, false);
+                        selectedCategory = categories.get(i);
                         break;
                     }
                 }
@@ -141,6 +145,7 @@ public class InputActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.d("TaskApp", ":: TaskInputActivity#onCreate ::::::::::::::::::::::::::::::");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_input);
 
@@ -193,7 +198,7 @@ public class InputActivity extends AppCompatActivity {
             timeButton.setText(String.format("%02d", hour) + ":" + String.format("%02d", minute));
         }
 
-        categoryAdapter = new CategoryAdapter(InputActivity.this);
+        categoryAdapter = new CategoryAdapter(TaskInputActivity.this);
         List<Category> categories = getAllCategories();
         categoryAdapter.setCategories(categories);
         categorySpinner.setAdapter(categoryAdapter);
@@ -210,9 +215,6 @@ public class InputActivity extends AppCompatActivity {
     private List<Category> getAllCategories() {
         RealmResults<Category> results = realm.where(Category.class).findAll().sort("name", Sort.DESCENDING);
         return realm.copyFromRealm(results);
-    }
-
-    private void reloadCategoryList() {
     }
 
     private void addTask() {
@@ -240,16 +242,19 @@ public class InputActivity extends AppCompatActivity {
         realm.commitTransaction();
         realm.close();
 
-        Intent resultIntent = new Intent(getApplicationContext(), TaskAlarmReceiver.class);
-        resultIntent.putExtra(MainActivity.EXTRA_TASK, task.getId());
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                this,
-                task.getId(),
-                resultIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT
-        );
-        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-        alarmManager.set(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
+        Log.d("TaskApp", task.toString() + " / " + task.getCategory().toString());
+        Log.d("TaskApp", "------------------------------------------------------------");
+
+//        Intent resultIntent = new Intent(getApplicationContext(), TaskAlarmReceiver.class);
+//        resultIntent.putExtra(MainActivity.EXTRA_TASK, task.getId());
+//        PendingIntent pendingIntent = PendingIntent.getBroadcast(
+//                this,
+//                task.getId(),
+//                resultIntent,
+//                PendingIntent.FLAG_UPDATE_CURRENT
+//        );
+//        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+//        alarmManager.set(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
     }
 
     @Override

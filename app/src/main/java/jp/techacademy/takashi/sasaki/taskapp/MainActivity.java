@@ -8,10 +8,13 @@ import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.Spinner;
+
+import java.util.List;
 
 import io.realm.Realm;
 import io.realm.RealmChangeListener;
@@ -30,45 +33,41 @@ public class MainActivity extends AppCompatActivity {
 
     private Category selectedCategory;
 
+    private int categorySelection = -1;
+
     private Realm realm;
 
-    private void prepareRealm() {
-        realm = Realm.getDefaultInstance();
+    // Listener
+    private RealmChangeListener<Realm> realmChangeListener = new RealmChangeListener<Realm>() {
+        @Override
+        public void onChange(Realm realm) {
+            Log.d("TaskApp", "MainActivity#RealmChangeListener#onChange");
+        }
+    };
 
-        // 0:未分類作成
-        if (realm.where(Category.class).equalTo("id", 0).findAll().size() == 0) {
-            realm.executeTransaction(new Realm.Transaction() {
-                @Override
-                public void execute(Realm realm) {
-                    Category category = realm.createObject(Category.class, 0);
-                    category.setName("未分類");
-                }
-            });
+    private AdapterView.OnItemSelectedListener onCategorySelectedListener = new AdapterView.OnItemSelectedListener() {
+        @Override
+        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+            Log.d("TaskApp", ":: onCategorySelectedListener#onItemSelected :::::::::::::::");
+            if (view != null) {
+                selectedCategory = (Category) ((Spinner) parent).getSelectedItem();
+                categorySelection = position;
+                Log.d("TaskApp", "category selection:" + categorySelection);
+                Log.d("TaskApp", "selected category:" + selectedCategory.getId() + " " + selectedCategory.getName());
+
+                taskAdapter.setTasks(getTasks());
+                taskListView.setAdapter(taskAdapter);
+            }
         }
 
-        // 起動時は未分類タスクを表示
-        selectedCategory = realm.where(Category.class).equalTo("id", 0).findFirst();
-
-        realm.addChangeListener(new RealmChangeListener<Realm>() {
-            @Override
-            public void onChange(Realm realm) {
-                reloadAllList();
-            }
-        });
-    }
-
-    private void clearRealm() {
-        realm.executeTransaction(new Realm.Transaction() {
-            @Override
-            public void execute(Realm realm) {
-                realm.where(Task.class).findAll().deleteAllFromRealm();
-                realm.where(Category.class).findAll().deleteAllFromRealm();
-            }
-        });
-    }
+        @Override
+        public void onNothingSelected(AdapterView<?> parent) {
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.d("TaskApp", ":: MainActivity#onCreate :::::::::::::::::::::::::::::::::::");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -76,22 +75,26 @@ public class MainActivity extends AppCompatActivity {
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent intent = new Intent(MainActivity.this, InputActivity.class);
+                Intent intent = new Intent(MainActivity.this, TaskInputActivity.class);
                 startActivity(intent);
             }
         });
 
-        prepareRealm();
+        realm = Realm.getDefaultInstance();
+        realm.addChangeListener(realmChangeListener);
 
         taskAdapter = new TaskAdapter(MainActivity.this);
+        taskAdapter.notifyDataSetChanged();
         categoryAdapter = new CategoryAdapter(MainActivity.this);
+        categoryAdapter.notifyDataSetChanged();
 
         taskListView = findViewById(R.id.taskListView);
+        taskListView.setEmptyView(findViewById(R.id.emptyTextView));
         taskListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Task task = (Task) parent.getAdapter().getItem(position);
-                Intent intent = new Intent(MainActivity.this, InputActivity.class);
+                Intent intent = new Intent(MainActivity.this, TaskInputActivity.class);
                 intent.putExtra(EXTRA_TASK, task.getId());
                 startActivity(intent);
             }
@@ -122,7 +125,7 @@ public class MainActivity extends AppCompatActivity {
                         AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
                         alarmManager.cancel(pendingIntent);
 
-                        reloadAllList();
+                        //reloadAllList();
                     }
                 });
                 builder.setNegativeButton("CANCEL", null);
@@ -133,44 +136,50 @@ public class MainActivity extends AppCompatActivity {
         });
 
         categorySpinner = findViewById(R.id.categorySpinner);
-        categorySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (view != null) {
-                    Spinner spinner = (Spinner) parent;
-                    selectedCategory = (Category) spinner.getSelectedItem();
-                    reloadTaskList();
-                }
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-            }
-        });
-
-        reloadAllList();
     }
 
-    private void reloadAllList() {
-        reloadTaskList();
-        reloadCategoryList();
+    @Override
+    protected void onResume() {
+        Log.d("TaskApp", ":: MainActivity#onResume :::::::::::::::::::::::::::::::::::");
+        super.onResume();
+
+        if (selectedCategory == null) {
+            selectedCategory = realm.where(Category.class).equalTo("id", 0).findFirst();
+        }
+
+        Log.d("TaskApp", "category selection:" + categorySelection);
+        Log.d("TaskApp", "selected category:" + selectedCategory.getId() + " " + selectedCategory.getName());
+
+        categoryAdapter.setCategories(getCategories());
+        categorySpinner.setAdapter(categoryAdapter);
+        categorySpinner.setOnItemSelectedListener(null);
+        categorySpinner.setSelection(getCategorySelection(categoryAdapter.getCategories(), selectedCategory.getId()), false);
+        categorySpinner.setOnItemSelectedListener(onCategorySelectedListener);
+
+        taskAdapter.setTasks(getTasks());
+        taskListView.setAdapter(taskAdapter);
     }
 
-    private void reloadTaskList() {
+    private int getCategorySelection(List<Category> categories, int targetId) {
+        for (int i = 0; i < categories.size(); i++) {
+            if (categories.get(i).getId() == targetId) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    private List<Category> getCategories() {
+        RealmResults<Category> results = realm.where(Category.class)
+                .findAll().sort("name", Sort.DESCENDING);
+        return realm.copyFromRealm(results);
+    }
+
+    private List<Task> getTasks() {
         RealmResults<Task> results = realm.where(Task.class)
                 .equalTo("category.id", selectedCategory.getId())
                 .findAll().sort("date", Sort.DESCENDING);
-        taskAdapter.setTaskList(realm.copyFromRealm(results));
-        taskListView.setAdapter(taskAdapter);
-        taskAdapter.notifyDataSetChanged();
-    }
-
-    private void reloadCategoryList() {
-        RealmResults<Category> results = realm.where(Category.class)
-                .findAll().sort("name", Sort.DESCENDING);
-        categoryAdapter.setCategories(realm.copyFromRealm(results));
-        categorySpinner.setAdapter(categoryAdapter);
-        categoryAdapter.notifyDataSetChanged();
+        return realm.copyFromRealm(results);
     }
 
     @Override

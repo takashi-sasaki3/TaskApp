@@ -8,7 +8,6 @@ import android.widget.BaseAdapter;
 import android.widget.TextView;
 
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -16,28 +15,30 @@ public class TaskAdapter extends BaseAdapter {
 
     private LayoutInflater layoutInflater;
 
-    private List<Task> taskList;
+    private List<Task> tasks;
+
+    private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.JAPANESE);
 
     public TaskAdapter(Context context) {
         this.layoutInflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
     }
 
-    public List<Task> getTaskList() {
-        return taskList;
+    public List<Task> getTasks() {
+        return tasks;
     }
 
-    public void setTaskList(List<Task> taskList) {
-        this.taskList = taskList;
+    public void setTasks(List<Task> tasks) {
+        this.tasks = tasks;
     }
 
     @Override
     public int getCount() {
-        return taskList.size();
+        return tasks.size();
     }
 
     @Override
     public Object getItem(int position) {
-        return taskList.get(position);
+        return tasks.get(position);
     }
 
     @Override
@@ -50,16 +51,8 @@ public class TaskAdapter extends BaseAdapter {
         if (convertView == null) {
             convertView = layoutInflater.inflate(android.R.layout.simple_list_item_2, null);
         }
-
-        TextView textView1 = convertView.findViewById(android.R.id.text1);
-        TextView textView2 = convertView.findViewById(android.R.id.text2);
-
-        textView1.setText(taskList.get(position).getTitle());
-
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.JAPANESE);
-        Date date = taskList.get(position).getDate();
-        textView2.setText(simpleDateFormat.format(date));
-
+        ((TextView) convertView.findViewById(android.R.id.text1)).setText(tasks.get(position).getTitle());
+        ((TextView) convertView.findViewById(android.R.id.text2)).setText(dateFormat.format(tasks.get(position).getDate()));
         return convertView;
     }
 }
