@@ -14,7 +14,7 @@ public class TaskApp extends Application {
 
         Realm.init(this);
 
-        clearRealm();
+        //clearRealm();
 
         Realm realm = Realm.getDefaultInstance();
         if (realm.where(Category.class).equalTo("id", 0).findAll().size() == 0) {
