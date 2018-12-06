@@ -1,7 +1,9 @@
 package jp.techacademy.takashi.sasaki.taskapp;
 
 import java.io.Serializable;
+import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 
 import io.realm.RealmObject;
 import io.realm.annotations.PrimaryKey;
@@ -67,5 +69,12 @@ public class Task extends RealmObject implements Serializable {
 
     public void setCategory(Category category) {
         this.category = category;
+    }
+
+    @Override
+    public String toString() {
+        return "{id:" + id + "},{title:" + title + "},{date:"
+                + new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.JAPANESE).format(date)
+                + "},{category:" + category.getId() + " " + category.getName() + "}";
     }
 }

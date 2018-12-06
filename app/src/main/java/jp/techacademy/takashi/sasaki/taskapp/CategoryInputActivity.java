@@ -19,9 +19,8 @@ public class CategoryInputActivity extends AppCompatActivity {
     private View.OnClickListener onDoneClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            int id = addCategory();
             Intent intent = new Intent();
-            intent.putExtra("categoryId", id);
+            intent.putExtra("categoryId", addCategory());
             setResult(Activity.RESULT_OK, intent);
             finish();
         }
@@ -29,6 +28,7 @@ public class CategoryInputActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.d("TaskApp", ":: CategoryInputActivity#onCreate ::::::::::::::::::::::::::");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_category_input);
 
@@ -43,20 +43,21 @@ public class CategoryInputActivity extends AppCompatActivity {
     }
 
     private int addCategory() {
+        Log.d("TaskApp", ":: CategoryInputActivity#addCategory :::::::::::::::::::::::");
         Realm realm = Realm.getDefaultInstance();
         int id = -1;
         try {
             Category category = new Category();
-            category.setName(nameEditText.getText().toString());
             RealmResults<Category> results = realm.where(Category.class).findAll();
-            if (results.max("id") != null) {
-                category.setId(results.max("id").intValue() + 1);
-            } else {
-                category.setId(0);
-            }
+            category.setId((results.max("id") != null ? results.max("id").intValue() + 1 : 0));
+            category.setName(nameEditText.getText().toString());
+
             realm.beginTransaction();
             realm.copyToRealmOrUpdate(category);
             realm.commitTransaction();
+
+            Log.d("TaskApp", category.toString());
+
             id = category.getId();
         } catch (Exception e) {
             realm.cancelTransaction();

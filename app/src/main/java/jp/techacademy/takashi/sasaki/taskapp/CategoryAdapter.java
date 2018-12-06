@@ -47,9 +47,16 @@ public class CategoryAdapter extends BaseAdapter {
         if (convertView == null) {
             convertView = layoutInflater.inflate(android.R.layout.simple_spinner_item, null);
         }
-        TextView textView1 = convertView.findViewById(android.R.id.text1);
-        textView1.setText(categories.get(position).getName());
-
+        ((TextView) convertView.findViewById(android.R.id.text1)).setText(categories.get(position).getName());
         return convertView;
+    }
+
+    public int getSelection(int id) {
+        for (int i = 0; i < getCount(); i++) {
+            if (((Category) getItem(i)).getId() == id) {
+                return i;
+            }
+        }
+        return 0;
     }
 }

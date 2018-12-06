@@ -17,13 +17,13 @@ import android.widget.Spinner;
 import java.util.List;
 
 import io.realm.Realm;
-import io.realm.RealmChangeListener;
 import io.realm.RealmResults;
 import io.realm.Sort;
 
 public class MainActivity extends AppCompatActivity {
 
     public final static String EXTRA_TASK = "jp.techacademy.takashi.sasaki.taskapp.TASK";
+    public final static String EXTRA_CATEGORY = "jp.techacademy.takashi.sasaki.taskapp.CATEGORY";
 
     private ListView taskListView;
     private Spinner categorySpinner;
@@ -68,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Intent intent = new Intent(MainActivity.this, TaskInputActivity.class);
+                intent.putExtra(EXTRA_CATEGORY, selectedCategory.getId());
                 startActivity(intent);
             }
         });
@@ -143,23 +144,13 @@ public class MainActivity extends AppCompatActivity {
         categoryAdapter.setCategories(getCategories());
         categorySpinner.setAdapter(categoryAdapter);
         categorySpinner.setOnItemSelectedListener(null);
-        categorySpinner.setSelection(getCategorySelection(categoryAdapter.getCategories(), selectedCategory.getId()), false);
+        categorySpinner.setSelection(categoryAdapter.getSelection(selectedCategory.getId()), false);
         categorySpinner.setOnItemSelectedListener(onCategorySelectedListener);
         categoryAdapter.notifyDataSetChanged();
 
         taskAdapter.setTasks(getTasks());
         taskListView.setAdapter(taskAdapter);
         taskAdapter.notifyDataSetChanged();
-
-    }
-
-    private int getCategorySelection(List<Category> categories, int targetId) {
-        for (int i = 0; i < categories.size(); i++) {
-            if (categories.get(i).getId() == targetId) {
-                return i;
-            }
-        }
-        return 0;
     }
 
     private List<Category> getCategories() {

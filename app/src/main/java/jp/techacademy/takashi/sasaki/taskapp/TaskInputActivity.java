@@ -1,7 +1,9 @@
 package jp.techacademy.takashi.sasaki.taskapp;
 
 import android.app.Activity;
+import android.app.AlarmManager;
 import android.app.DatePickerDialog;
+import android.app.PendingIntent;
 import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.os.Bundle;
@@ -21,10 +23,10 @@ import java.util.GregorianCalendar;
 import java.util.List;
 
 import io.realm.Realm;
-import io.realm.RealmChangeListener;
 import io.realm.RealmResults;
 import io.realm.Sort;
 
+import static jp.techacademy.takashi.sasaki.taskapp.MainActivity.EXTRA_CATEGORY;
 import static jp.techacademy.takashi.sasaki.taskapp.MainActivity.EXTRA_TASK;
 
 public class TaskInputActivity extends AppCompatActivity {
@@ -36,21 +38,10 @@ public class TaskInputActivity extends AppCompatActivity {
 
     private Task task;
     private Category selectedCategory;
+
     private CategoryAdapter categoryAdapter;
 
-    private int newCategoryId;
-
     private Realm realm;
-
-    private RealmChangeListener<Realm> realmChangeListener = new RealmChangeListener<Realm>() {
-        @Override
-        public void onChange(Realm realm) {
-//            List<Category> categories = getAllCategories();
-//            categoryAdapter.setCategories(categories);
-//            categorySpinner.setAdapter(categoryAdapter);
-//            categoryAdapter.notifyDataSetChanged();
-        }
-    };
 
     private View.OnClickListener onDateClickListener = new View.OnClickListener() {
         @Override
@@ -122,23 +113,15 @@ public class TaskInputActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == 101) {
             if (resultCode == Activity.RESULT_OK) {
-                newCategoryId = data.getIntExtra("categoryId", -1);
-                Log.d("TaskApp", "new category id:" + newCategoryId);
-
-                RealmResults<Category> results = realm.where(Category.class)
-                        .findAll().sort("name", Sort.DESCENDING);
-                categoryAdapter.setCategories(realm.copyFromRealm(results));
+                int categoryId = data.getIntExtra("categoryId", -1);
+                Log.d("TaskApp", "new category id:" + categoryId);
+                selectedCategory = realm.where(Category.class).equalTo("id", categoryId).findFirst();
+                categoryAdapter.setCategories(getAllCategories());
                 categorySpinner.setAdapter(categoryAdapter);
                 categorySpinner.setOnItemSelectedListener(null);
-                List<Category> categories = categoryAdapter.getCategories();
-                for (int i = 0; i < categories.size(); i++) {
-                    if (categories.get(i).getId() == newCategoryId) {
-                        categorySpinner.setSelection(i, false);
-                        selectedCategory = categories.get(i);
-                        break;
-                    }
-                }
+                categorySpinner.setSelection(categoryAdapter.getSelection(selectedCategory.getId()), false);
                 categorySpinner.setOnItemSelectedListener(onCategorySelectedListener);
+                categoryAdapter.notifyDataSetChanged();
             }
         }
     }
@@ -161,19 +144,20 @@ public class TaskInputActivity extends AppCompatActivity {
         timeButton.setOnClickListener(onTimeClickListener);
         findViewById(R.id.done_button).setOnClickListener(onDoneClickListener);
         findViewById(R.id.addCategoryButton).setOnClickListener(onAddCategoryClickLister);
+
         titleEditText = findViewById(R.id.title_edit_text);
         contentEditText = findViewById(R.id.content_edit_text);
         categorySpinner = findViewById(R.id.categorySpinner);
 
         Intent intent = getIntent();
         int taskId = intent.getIntExtra(EXTRA_TASK, -1);
+        int categoryId = intent.getIntExtra(EXTRA_CATEGORY, 0);
+        Log.d("TaskApp", "task id:" + taskId);
+        Log.d("TaskApp", "category id:" + categoryId);
 
         realm = Realm.getDefaultInstance();
-        realm.addChangeListener(realmChangeListener);
-
+        selectedCategory = realm.where(Category.class).equalTo("id", categoryId).findFirst();
         task = realm.where(Task.class).equalTo("id", taskId).findFirst();
-        selectedCategory = realm.where(Category.class).equalTo("id", 0).findFirst();
-
         if (task == null) {
             Calendar calendar = Calendar.getInstance();
             year = calendar.get(Calendar.YEAR);
@@ -199,21 +183,16 @@ public class TaskInputActivity extends AppCompatActivity {
         }
 
         categoryAdapter = new CategoryAdapter(TaskInputActivity.this);
-        List<Category> categories = getAllCategories();
-        categoryAdapter.setCategories(categories);
+        categoryAdapter.setCategories(getAllCategories());
         categorySpinner.setAdapter(categoryAdapter);
-        categoryAdapter.notifyDataSetChanged();
-        for (int i = 0; i < categories.size(); i++) {
-            if (categories.get(i).getId() == selectedCategory.getId()) {
-                categorySpinner.setSelection(i, false);
-                break;
-            }
-        }
+        categorySpinner.setSelection(categoryAdapter.getSelection(selectedCategory.getId()), false);
         categorySpinner.setOnItemSelectedListener(onCategorySelectedListener);
+        categoryAdapter.notifyDataSetChanged();
     }
 
     private List<Category> getAllCategories() {
-        RealmResults<Category> results = realm.where(Category.class).findAll().sort("name", Sort.DESCENDING);
+        RealmResults<Category> results = realm.where(Category.class)
+                .findAll().sort("name", Sort.DESCENDING);
         return realm.copyFromRealm(results);
     }
 
@@ -243,18 +222,17 @@ public class TaskInputActivity extends AppCompatActivity {
         realm.close();
 
         Log.d("TaskApp", task.toString() + " / " + task.getCategory().toString());
-        Log.d("TaskApp", "------------------------------------------------------------");
 
-//        Intent resultIntent = new Intent(getApplicationContext(), TaskAlarmReceiver.class);
-//        resultIntent.putExtra(MainActivity.EXTRA_TASK, task.getId());
-//        PendingIntent pendingIntent = PendingIntent.getBroadcast(
-//                this,
-//                task.getId(),
-//                resultIntent,
-//                PendingIntent.FLAG_UPDATE_CURRENT
-//        );
-//        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-//        alarmManager.set(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
+        Intent resultIntent = new Intent(getApplicationContext(), TaskAlarmReceiver.class);
+        resultIntent.putExtra(MainActivity.EXTRA_TASK, task.getId());
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                this,
+                task.getId(),
+                resultIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT
+        );
+        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+        alarmManager.set(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
     }
 
     @Override

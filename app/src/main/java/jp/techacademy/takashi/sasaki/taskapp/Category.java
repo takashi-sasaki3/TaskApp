@@ -13,6 +13,7 @@ public class Category extends RealmObject implements Serializable {
     private String name;
 
     public Category() {
+        super();
     }
 
     public Category(int id, String name) {
@@ -34,5 +35,10 @@ public class Category extends RealmObject implements Serializable {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    @Override
+    public String toString() {
+        return "{id:" + id + "},{name:" + name + "}";
     }
 }
