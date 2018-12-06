@@ -37,14 +37,6 @@ public class MainActivity extends AppCompatActivity {
 
     private Realm realm;
 
-    // Listener
-    private RealmChangeListener<Realm> realmChangeListener = new RealmChangeListener<Realm>() {
-        @Override
-        public void onChange(Realm realm) {
-            Log.d("TaskApp", "MainActivity#RealmChangeListener#onChange");
-        }
-    };
-
     private AdapterView.OnItemSelectedListener onCategorySelectedListener = new AdapterView.OnItemSelectedListener() {
         @Override
         public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -81,12 +73,9 @@ public class MainActivity extends AppCompatActivity {
         });
 
         realm = Realm.getDefaultInstance();
-        realm.addChangeListener(realmChangeListener);
 
         taskAdapter = new TaskAdapter(MainActivity.this);
-        taskAdapter.notifyDataSetChanged();
         categoryAdapter = new CategoryAdapter(MainActivity.this);
-        categoryAdapter.notifyDataSetChanged();
 
         taskListView = findViewById(R.id.taskListView);
         taskListView.setEmptyView(findViewById(R.id.emptyTextView));
@@ -125,7 +114,9 @@ public class MainActivity extends AppCompatActivity {
                         AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
                         alarmManager.cancel(pendingIntent);
 
-                        //reloadAllList();
+                        taskAdapter.setTasks(getTasks());
+                        taskListView.setAdapter(taskAdapter);
+                        taskAdapter.notifyDataSetChanged();
                     }
                 });
                 builder.setNegativeButton("CANCEL", null);
@@ -146,7 +137,6 @@ public class MainActivity extends AppCompatActivity {
         if (selectedCategory == null) {
             selectedCategory = realm.where(Category.class).equalTo("id", 0).findFirst();
         }
-
         Log.d("TaskApp", "category selection:" + categorySelection);
         Log.d("TaskApp", "selected category:" + selectedCategory.getId() + " " + selectedCategory.getName());
 
@@ -155,9 +145,12 @@ public class MainActivity extends AppCompatActivity {
         categorySpinner.setOnItemSelectedListener(null);
         categorySpinner.setSelection(getCategorySelection(categoryAdapter.getCategories(), selectedCategory.getId()), false);
         categorySpinner.setOnItemSelectedListener(onCategorySelectedListener);
+        categoryAdapter.notifyDataSetChanged();
 
         taskAdapter.setTasks(getTasks());
         taskListView.setAdapter(taskAdapter);
+        taskAdapter.notifyDataSetChanged();
+
     }
 
     private int getCategorySelection(List<Category> categories, int targetId) {

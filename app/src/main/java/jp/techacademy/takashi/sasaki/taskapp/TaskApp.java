@@ -6,6 +6,7 @@ import android.util.Log;
 import io.realm.Realm;
 
 public class TaskApp extends Application {
+
     @Override
     public void onCreate() {
         Log.d("TaskApp", ":: TaskApp#onCreate :::::::::::::::::::::::::::::::::::::::::");
@@ -40,4 +41,5 @@ public class TaskApp extends Application {
         });
         realm.close();
     }
+
 }
